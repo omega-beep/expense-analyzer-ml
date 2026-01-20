@@ -1,14 +1,21 @@
-# Expense Analyzer using Machine Learning
+# Smart Expense Analyzer (ML)
 
-A machine learning–based web application that automatically categorizes expense descriptions using NLP techniques and visualizes spending patterns.
+A machine learning–based web application that categorizes expense descriptions using NLP and performs amount-based expense analysis to show where money is spent.
+
+## What This Project Does
+- Classifies expense descriptions into categories using machine learning
+- Analyzes both **single expenses** and **bulk transactions**
+- Aggregates **total money spent per category**
+- Visualizes spending patterns using charts
+- Exports analyzed results as a CSV file
 
 ## Features
-- Text-based expense categorization using TF-IDF + Logistic Regression
-- Top-2 category predictions with confidence scores
-- Batch prediction via CSV upload
-- Category-wise summary analytics
-- Interactive bar and pie charts (Chart.js)
-- Export predictions as downloadable CSV
+- NLP-based expense categorization (TF-IDF + Logistic Regression)
+- Single expense analysis with amount and confidence score
+- Batch expense analysis via CSV upload
+- Category-wise transaction count and total spend
+- Bar and pie chart visualizations (Chart.js)
+- Downloadable CSV with predictions and amounts
 
 ## Tech Stack
 - Python
@@ -19,13 +26,14 @@ A machine learning–based web application that automatically categorizes expens
 - Chart.js
 
 ## Machine Learning Approach
-- Text vectorization using TF-IDF with unigrams and bigrams
+- Text vectorization using TF-IDF (unigrams + bigrams)
 - Regularized Logistic Regression for multi-class classification
 - Probability-based predictions for confidence estimation
 
-## Input Format (CSV)
+## CSV Input Format
 ```csv
-description
-uber ride
-amazon prime
-pizza hut order
+description,amount
+uber ride,250
+amazon prime,1499
+pizza hut order,620
+electricity bill,2100
