@@ -5,16 +5,16 @@ from predictor import predict_top_categories
 
 app = Flask(__name__)
 
-# store last CSV results for download
 last_export_df = None
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     global last_export_df
 
-    predictions = None
+    single_result = None
     bulk_results = None
     category_summary = None
+    amount_summary = None
     error = None
 
     if request.method == "POST":
@@ -23,11 +23,25 @@ def index():
         # -------- SINGLE EXPENSE --------
         if form_type == "single":
             description = request.form.get("description", "").strip()
+            amount = request.form.get("amount", "").strip()
 
-            if not description:
-                error = "Please enter an expense description."
+            if not description or not amount:
+                error = "Please enter both description and amount."
             else:
-                predictions = predict_top_categories(description)
+                try:
+                    amount = float(amount)
+                    preds = predict_top_categories(description)
+                    top_category, confidence = preds[0]
+
+                    single_result = {
+                        "description": description,
+                        "amount": amount,
+                        "category": top_category,
+                        "confidence": confidence,
+                        "predictions": preds
+                    }
+                except ValueError:
+                    error = "Amount must be a valid number."
 
         # -------- CSV UPLOAD --------
         elif form_type == "csv":
@@ -36,32 +50,35 @@ def index():
             try:
                 df = pd.read_csv(file)
 
-                if df.empty:
-                    raise ValueError("CSV file is empty.")
-
-                if "description" not in df.columns:
-                    raise ValueError("CSV must contain a 'description' column.")
+                required_cols = {"description", "amount"}
+                if not required_cols.issubset(df.columns):
+                    raise ValueError("CSV must contain 'description' and 'amount' columns.")
 
                 bulk_results = []
                 category_summary = {}
+                amount_summary = {}
                 export_rows = []
 
-                for desc in df["description"]:
-                    preds = predict_top_categories(desc)
+                for _, row in df.iterrows():
+                    desc = str(row["description"])
+                    amount = float(row["amount"])
 
-                    # top-1 for summary
+                    preds = predict_top_categories(desc)
                     top1_cat, top1_conf = preds[0]
                     top2_cat, top2_conf = preds[1]
 
                     category_summary[top1_cat] = category_summary.get(top1_cat, 0) + 1
+                    amount_summary[top1_cat] = amount_summary.get(top1_cat, 0) + amount
 
                     bulk_results.append({
                         "description": desc,
+                        "amount": amount,
                         "predictions": preds
                     })
 
                     export_rows.append({
                         "description": desc,
+                        "amount": amount,
                         "top_category": top1_cat,
                         "top_confidence": top1_conf,
                         "second_category": top2_cat,
@@ -75,9 +92,10 @@ def index():
 
     return render_template(
         "index.html",
-        predictions=predictions,
+        single_result=single_result,
         bulk_results=bulk_results,
         category_summary=category_summary,
+        amount_summary=amount_summary,
         error=error
     )
 
@@ -97,7 +115,7 @@ def download_csv():
         io.BytesIO(output.getvalue().encode()),
         mimetype="text/csv",
         as_attachment=True,
-        download_name="expense_predictions.csv"
+        download_name="expense_analysis.csv"
     )
 
 

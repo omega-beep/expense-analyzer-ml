@@ -4,115 +4,124 @@
     <title>Expense Analyzer (ML)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body>
 
 <div class="container">
-
     <h1>Smart Expense Analyzer (ML)</h1>
 
     {% if error %}
-        <p style="color: red; font-weight: bold;">
-            Error: {{ error }}
-        </p>
+        <p style="color: red; font-weight: bold;">{{ error }}</p>
     {% endif %}
 
-    <!-- ========= SINGLE EXPENSE ========= -->
+    <!-- SINGLE EXPENSE -->
     <h3>Analyze Single Expense</h3>
-
     <form method="POST">
         <input type="hidden" name="form_type" value="single">
 
-        <input type="text" name="description" placeholder="e.g. uber ride" required>
-        <br><br>
+        <input type="text" name="description" placeholder="Expense description" required>
+        <input type="number" name="amount" placeholder="Amount (₹)" step="0.01" required>
+
         <button type="submit">Analyze</button>
     </form>
 
-    {% if predictions %}
-        <h3>Top Predictions</h3>
+    {% if single_result %}
+        <hr>
+        <h3>Single Expense Analysis</h3>
+        <p>
+            <strong>₹{{ "%.2f"|format(single_result.amount) }}</strong>
+            spent on
+            <strong>{{ single_result.category }}</strong>
+            ({{ single_result.confidence }}% confidence)
+        </p>
+
+        <h4>Other possible categories</h4>
         <ul>
-            {% for category, confidence in predictions %}
-                <li>
-                    <strong>{{ category }}</strong> — {{ confidence }}%
-                </li>
+            {% for category, confidence in single_result.predictions %}
+                <li>{{ category }} — {{ confidence }}%</li>
             {% endfor %}
         </ul>
     {% endif %}
 
     <hr>
 
-    <!-- ========= CSV UPLOAD ========= -->
-    <h3>Analyze CSV (Bulk Transactions)</h3>
-    <p>CSV must contain a column named <strong>description</strong></p>
-
+    <!-- CSV UPLOAD -->
+    <h3>Analyze CSV (description + amount)</h3>
     <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="form_type" value="csv">
-
         <input type="file" name="csv_file" accept=".csv" required>
-        <br><br>
         <button type="submit">Analyze CSV</button>
     </form>
 
     {% if bulk_results %}
-        <h3>CSV Results</h3>
-
+        <h3>Transaction Results</h3>
         {% for item in bulk_results %}
-            <div style="margin-bottom: 15px;">
+            <p>
                 <strong>{{ item.description }}</strong>
-                <ul>
-                    {% for category, confidence in item.predictions %}
-                        <li>{{ category }} — {{ confidence }}%</li>
-                    {% endfor %}
-                </ul>
-            </div>
+                — ₹{{ "%.2f"|format(item.amount) }}
+            </p>
+            <ul>
+                {% for category, confidence in item.predictions %}
+                    <li>{{ category }} — {{ confidence }}%</li>
+                {% endfor %}
+            </ul>
         {% endfor %}
     {% endif %}
 
     {% if category_summary %}
         <hr>
-        <h3>Category Summary</h3>
-
-        <canvas id="barChart" width="400" height="200"></canvas>
-        <br>
-        <canvas id="pieChart" width="400" height="200"></canvas>
+        <h3>Category Summary (Count)</h3>
+        <ul>
+            {% for category, count in category_summary.items() %}
+                <li><strong>{{ category }}</strong>: {{ count }}</li>
+            {% endfor %}
+        </ul>
     {% endif %}
 
+    {% if amount_summary %}
+        <hr>
+        <h3>Total Spend by Category</h3>
+        <ul>
+            {% for category, total in amount_summary.items() %}
+                <li><strong>{{ category }}</strong>: ₹{{ "%.2f"|format(total) }}</li>
+            {% endfor %}
+        </ul>
+
+        <canvas id="barChart"></canvas>
+        <canvas id="pieChart"></canvas>
+    {% endif %}
 
     {% if category_summary %}
-        <hr>
         <form action="/download" method="GET">
-            <button type="submit">Download Results as CSV</button>
+            <button type="submit">Download Analysis CSV</button>
         </form>
     {% endif %}
-
 </div>
-{% if category_summary %}
+
+{% if category_summary and amount_summary %}
 <script>
-    const categoryData = {{ category_summary | tojson }};
+    const countData = JSON.parse('{{ category_summary | tojson | safe }}');
+    const amountData = JSON.parse('{{ amount_summary | tojson | safe }}');
 
-    const labels = Object.keys(categoryData);
-    const values = Object.values(categoryData);
+    const labels = Object.keys(amountData);
 
-    // BAR CHART
     new Chart(document.getElementById('barChart'), {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Number of Transactions',
-                data: values
+                label: 'Transaction Count',
+                data: Object.values(countData)
             }]
         }
     });
 
-    // PIE CHART
     new Chart(document.getElementById('pieChart'), {
         type: 'pie',
         data: {
             labels: labels,
             datasets: [{
-                data: values
+                data: Object.values(amountData)
             }]
         }
     });
